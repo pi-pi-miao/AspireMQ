@@ -1,0 +1,6 @@
+syntax = "proto3";
+
+message OurSelf {
+  string    Addr = 1;
+  int32     CpuNum = 2;
+}
