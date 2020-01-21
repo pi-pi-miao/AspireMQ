@@ -1,7 +1,7 @@
 package client
 
 import (
-	"AspireMQ/api/types"
+	"github.com/pi-pi-miao/AspireMQ/api/types"
 	"encoding/binary"
 	"github.com/golang/protobuf/proto"
 	"net"

@@ -1,11 +1,11 @@
 package aspire_mq
 
 import (
-	"AspireMQ/api/types"
-	"AspireMQ/pkg/aspire"
-	"AspireMQ/pkg/client"
-	"AspireMQ/pkg/common"
-	"AspireMQ/staging/src/aspire.mq/wrapper"
+	"github.com/pi-pi-miao/AspireMQ/api/types"
+	"github.com/pi-pi-miao/AspireMQ/pkg/aspire"
+	"github.com/pi-pi-miao/AspireMQ/pkg/client"
+	"github.com/pi-pi-miao/AspireMQ/pkg/common"
+	"github.com/pi-pi-miao/AspireMQ/staging/src/aspire.mq/wrapper"
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"

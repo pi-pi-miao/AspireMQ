@@ -1,17 +1,17 @@
 package aspire
 
 import (
-	"AspireMQ/api/types"
-	"AspireMQ/pkg/common"
-	"AspireMQ/staging/src/aspire.mq/wrapper"
 	"encoding/binary"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/pi-pi-miao/AspireMQ/api/types"
+	"github.com/pi-pi-miao/AspireMQ/pkg/common"
+	"github.com/pi-pi-miao/AspireMQ/staging/src/aspire.mq/wrapper"
+	"github.com/pi-pi-miao/AspireMQ/staging/src/safe_map"
 	"io"
 	"net"
 	"sync"
 	"time"
-	"AspireMQ/staging/src/safe_map"
 )
 
 var (
@@ -25,16 +25,16 @@ type AspireMQ struct {
 }
 
 type aspire struct {
-	key string
-	conn net.Conn
-	aspireMq *AspireMQ
-	group string
-	getConn chan []byte
+	key         string
+	conn        net.Conn
+	aspireMq    *AspireMQ
+	group       string
+	getConn     chan []byte
 	getConnFlag bool
-	stop    chan bool
-	once   *sync.Once
-	lock   *sync.RWMutex
-	gLock  *sync.RWMutex
+	stop        chan bool
+	once        *sync.Once
+	lock        *sync.RWMutex
+	gLock       *sync.RWMutex
 }
 
 func NewAspireMQ() {
@@ -42,22 +42,22 @@ func NewAspireMQ() {
 		Conn: safe_map.New(),
 	}
 	a = &aspire{
-		getConn:make(chan []byte,1000),
-		stop:make(chan bool),
-		aspireMq:Mq,
-		once:&sync.Once{},
-		lock:&sync.RWMutex{},
-		gLock:&sync.RWMutex{},
+		getConn:  make(chan []byte, 1000),
+		stop:     make(chan bool),
+		aspireMq: Mq,
+		once:     &sync.Once{},
+		lock:     &sync.RWMutex{},
+		gLock:    &sync.RWMutex{},
 	}
 	return
 }
 
 func GetConn(conn net.Conn, key string) {
 	a.conn = conn
-	a.key  = key
+	a.key = key
 	Mq.Conn.Set(key, a)
-	wrapper.Wrapper(a.get,"aspire.[get]")
-	wrapper.Wrapper(a.read,"aspire.[read]")
+	wrapper.Wrapper(a.get, "aspire.[get]")
+	wrapper.Wrapper(a.read, "aspire.[read]")
 	wrapper.Wrapper(a.send, "aspire.[send]")
 }
 
@@ -68,10 +68,10 @@ func (g *aspire) send() {
 	for v := range common.SendMessage {
 		g.gLock.RLock()
 		if v.Group == g.group {
-			sendData,err := proto.Marshal(&types.Message{
-				Type:                 v.Type,
-				Data:                 v.Data,
-				Group:                v.Group,
+			sendData, err := proto.Marshal(&types.Message{
+				Type:  v.Type,
+				Data:  v.Data,
+				Group: v.Group,
 			})
 			if err != nil {
 				// todo 打印日志，报警处理
@@ -85,7 +85,7 @@ func (g *aspire) send() {
 				common.TemporaryCache.Set(fmt.Sprintf("%v", time.Now()), v)
 			}
 			g.gLock.RUnlock()
-		}else {
+		} else {
 			// 出现这样的情况很大原因是aspireMQ服务挂掉了,或者修改了group
 			// todo 打印日志消息,把消息存储到日志中
 			fmt.Println("this message is not group can receive or aspireMQ server is abnormal")
@@ -93,7 +93,7 @@ func (g *aspire) send() {
 	}
 }
 
-func (g *aspire)read(){
+func (g *aspire) read() {
 	sizeData := make([]byte, 2)
 	for {
 		select {
@@ -124,10 +124,10 @@ func (g *aspire)read(){
 
 // aspireMQ has register group api and can edit group
 // receive group
-func (g *aspire)get(){
+func (g *aspire) get() {
 	receiveData := &types.Message{}
 	for v := range g.getConn {
-		err := proto.Unmarshal(v,receiveData)
+		err := proto.Unmarshal(v, receiveData)
 		if err != nil {
 			// todo aspireMQ service is abnormal  待打印日志
 		}
@@ -137,7 +137,7 @@ func (g *aspire)get(){
 	}
 }
 
-func (g *aspire)close(){
+func (g *aspire) close() {
 	g.once.Do(func() {
 		g.lock.Lock()
 		g.getConnFlag = false
