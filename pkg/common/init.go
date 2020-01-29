@@ -1,9 +1,9 @@
 package common
 
 import (
-	"AspireMQ/api/types"
-	"AspireMQ/staging/src/aspire.mq/wrapper"
-	"AspireMQ/staging/src/safe_map"
+	"github.com/pi-pi-miao/AspireMQ/api/types"
+	"github.com/pi-pi-miao/AspireMQ/staging/src/aspire.mq/wrapper"
+	"github.com/pi-pi-miao/AspireMQ/staging/src/safe_map"
 )
 
 func InitCommon(){

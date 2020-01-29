@@ -16,7 +16,6 @@ import (
 
 var (
 	Mq *AspireMQ
-	a  *aspire
 )
 
 // all manager
@@ -41,21 +40,24 @@ func NewAspireMQ() {
 	Mq = &AspireMQ{
 		Conn: safe_map.New(),
 	}
-	a = &aspire{
+	return
+}
+
+func GetConn(conn net.Conn, key string) {
+	engine(&aspire{
 		getConn:  make(chan []byte, 1000),
 		stop:     make(chan bool),
 		aspireMq: Mq,
 		once:     &sync.Once{},
 		lock:     &sync.RWMutex{},
 		gLock:    &sync.RWMutex{},
-	}
-	return
+		conn:conn,
+		key:key,
+	})
 }
 
-func GetConn(conn net.Conn, key string) {
-	a.conn = conn
-	a.key = key
-	Mq.Conn.Set(key, a)
+func engine(a *aspire){
+	Mq.Conn.Set(a.key, a)
 	wrapper.Wrapper(a.get, "aspire.[get]")
 	wrapper.Wrapper(a.read, "aspire.[read]")
 	wrapper.Wrapper(a.send, "aspire.[send]")
@@ -86,6 +88,7 @@ func (g *aspire) send() {
 			}
 			g.gLock.RUnlock()
 		} else {
+			g.gLock.RUnlock()
 			// 出现这样的情况很大原因是aspireMQ服务挂掉了,或者修改了group
 			// todo 打印日志消息,把消息存储到日志中
 			fmt.Println("this message is not group can receive or aspireMQ server is abnormal")
@@ -105,12 +108,14 @@ func (g *aspire) read() {
 		if g.getConnFlag {
 			if _, err := io.ReadFull(g.conn, sizeData); err != nil {
 				// todo 待添加日志
+				g.lock.RUnlock()
 				g.close()
 				return
 			}
 			data := make([]byte, binary.LittleEndian.Uint16(sizeData))
 			if _, err := io.ReadFull(g.conn, data); err != nil {
 				// todo 待添加日志
+				g.lock.RUnlock()
 				g.close()
 				return
 			}
