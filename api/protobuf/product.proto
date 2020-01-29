@@ -3,7 +3,6 @@ syntax = "proto3";
 message Message {
    string  Type = 1;
    bytes   Data = 2;
-   string  Group = 3;
 }
 
 message Product {

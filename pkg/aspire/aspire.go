@@ -56,6 +56,7 @@ func GetConn(conn net.Conn, key string) {
 	})
 }
 
+// todo add heartbeat
 func engine(a *aspire){
 	Mq.Conn.Set(a.key, a)
 	wrapper.Wrapper(a.get, "aspire.[get]")
@@ -68,30 +69,20 @@ func engine(a *aspire){
 //*/
 func (g *aspire) send() {
 	for v := range common.SendMessage {
-		g.gLock.RLock()
-		if v.Group == g.group {
-			sendData, err := proto.Marshal(&types.Message{
-				Type:  v.Type,
-				Data:  v.Data,
-				Group: v.Group,
-			})
-			if err != nil {
-				// todo 打印日志，报警处理
-			}
-			data := make([]byte, 2)
-			binary.LittleEndian.PutUint16(data, uint16(len(sendData)))
-			data = append(data, sendData...)
-			if _, err := g.conn.Write(data); err != nil {
-				// todo 打印这条消息到日志并且报警
-				fmt.Println("write err", err)
-				common.TemporaryCache.Set(fmt.Sprintf("%v", time.Now()), v)
-			}
-			g.gLock.RUnlock()
-		} else {
-			g.gLock.RUnlock()
-			// 出现这样的情况很大原因是aspireMQ服务挂掉了,或者修改了group
-			// todo 打印日志消息,把消息存储到日志中
-			fmt.Println("this message is not group can receive or aspireMQ server is abnormal")
+		sendData, err := proto.Marshal(&types.Message{
+			Type:  v.Type,
+			Data:  v.Data,
+		})
+		if err != nil {
+			// todo 打印日志，报警处理
+		}
+		data := make([]byte, 2)
+		binary.LittleEndian.PutUint16(data, uint16(len(sendData)))
+		data = append(data, sendData...)
+		if _, err := g.conn.Write(data); err != nil {
+			// todo 打印这条消息到日志并且报警
+			fmt.Println("write err", err)
+			common.TemporaryCache.Set(fmt.Sprintf("%v", time.Now()), v)
 		}
 	}
 }
@@ -127,20 +118,26 @@ func (g *aspire) read() {
 	}
 }
 
+// todo heartbeat
+func (g *aspire) get() {
+
+}
+
+// todo add this to group
 // aspireMQ has register group api and can edit group
 // receive group
-func (g *aspire) get() {
-	receiveData := &types.Message{}
-	for v := range g.getConn {
-		err := proto.Unmarshal(v, receiveData)
-		if err != nil {
-			// todo aspireMQ service is abnormal  待打印日志
-		}
-		g.gLock.Lock()
-		g.group = receiveData.Group
-		g.gLock.Unlock()
-	}
-}
+//func (g *aspire) get() {
+//	receiveData := &types.Message{}
+//	for v := range g.getConn {
+//		err := proto.Unmarshal(v, receiveData)
+//		if err != nil {
+//			// todo aspireMQ service is abnormal  待打印日志
+//		}
+//		g.gLock.Lock()
+//		g.group = receiveData.Group
+//		g.gLock.Unlock()
+//	}
+//}
 
 func (g *aspire) close() {
 	g.once.Do(func() {

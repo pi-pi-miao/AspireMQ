@@ -3,12 +3,12 @@ package types
 type Messages struct {
 	Type string
 	Data []byte
-	Group string
 }
 
 
-func NewMessages()*Messages{
+func NewMessages(t string,data []byte)*Messages{
 	return &Messages{
-		Data:make([]byte,0,1024),
+		Type:t,
+		Data:data,
 	}
 }

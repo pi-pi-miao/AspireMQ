@@ -14,12 +14,12 @@ var (
 
 type Client struct {
 	OurAddr      string
-	AspireMQAddr string
-	Conn         net.Conn
+	AspireMQAddr []string
+	Conn         []net.Conn
 	GetData      chan []byte
 }
 
-func ReportOurSelft(ourAddr, originAddr string) error {
+func ReportOurSelft(ourAddr string, originAddr []string) error {
 	cli = &Client{}
 	cli.OurAddr = ourAddr
 	cli.AspireMQAddr = originAddr
@@ -35,11 +35,13 @@ func ReportOurSelft(ourAddr, originAddr string) error {
 }
 
 func (c *Client) Register() (*Client, error) {
-	conn, err := net.Dial("tcp", cli.AspireMQAddr)
-	if err != nil {
-		return nil, err
+	for k,_ := range cli.AspireMQAddr {
+		conn,err := net.Dial("tcp",cli.AspireMQAddr[k])
+		if err != nil {
+			return nil, err
+		}
+		c.Conn = append(c.Conn,conn)
 	}
-	c.Conn = conn
 	return c, nil
 }
 
@@ -58,9 +60,17 @@ func (c *Client) ReportOurCpuNum() (*Client, error) {
 	data := make([]byte, 2)
 	binary.LittleEndian.PutUint16(data, uint16(len(ourInfo)))
 	data = append(data, ourInfo...)
-	if _, err := c.Conn.Write(data); err != nil {
-		c.Conn.Close()
-		return nil, err
+	for k,_ := range c.Conn {
+		if _, err := c.Conn[k].Write(data); err != nil {
+			c.Conn[k].Close()
+			c.Conn = append(c.Conn[:k],c.Conn[k+1:]...)
+			return nil, err
+		}
 	}
 	return c, nil
+}
+
+// todo cpu,disk,mem,fileInfo,heartbeat,something...
+func (c *Client)ReportOurHealth(){
+
 }

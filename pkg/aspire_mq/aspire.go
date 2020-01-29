@@ -15,43 +15,42 @@ import (
 
 // todo 添加plugin
 
-type SyncAspireMq struct {
+type AspireMq struct {
 	Addr   string
 	Err    error
 	SendCh chan string
 }
 
 // start Call this function
-func SyncAspireRegisterOurself(ip, port, originIp, originPort string) (*SyncAspireMq, error) {
-	a := &SyncAspireMq{
+func Aspire(ip, port, originAddr []string) (*AspireMq, error) {
+	a := &AspireMq{
 		Addr: fmt.Sprintf("%v:%v", ip, port),
 	}
 	aspire.NewAspireMQ()
 	common.InitCommon()
-	if _, err := a.Init(fmt.Sprintf("%v:%v", originIp, originPort)); err != nil {
+	if _, err := a.Init(originAddr); err != nil {
 		return nil, err
 	}
-
 	return a, nil
 }
 
-func (a *SyncAspireMq) Init(addr string) (*SyncAspireMq, error) {
+func (a *AspireMq) Init(addr []string) (*AspireMq, error) {
 	wrapper.Wrapper(
 		func() {
 			ln, err := net.Listen("tcp", a.Addr)
 			if err != nil {
-				// todo 打印日志
+				// todo add log
 				a.Err = err
 				return
 			}
 			conn, err := ln.Accept()
 			if err != nil {
-				//todo 打印日志
+				//todo add log
 				return
 			}
 			id, ok := <-common.MessageId
 			if !ok {
-				// 代表这个程序关闭了// 打印日志
+				// todo add log about this aspire closed
 				return
 			}
 			aspire.GetConn(conn, id)
@@ -74,7 +73,7 @@ func (a *SyncAspireMq) Init(addr string) (*SyncAspireMq, error) {
 //*/
 
 // product sync to consumer
-func (a *SyncAspireMq) Do(topic, message,group string) error {
+func (a *AspireMq) Publish(topic, message string) error {
 	id, ok := <-common.MessageId
 	if !ok {
 		return errors.New("Unexpected mistakes about get message id")
@@ -87,12 +86,56 @@ func (a *SyncAspireMq) Do(topic, message,group string) error {
 	if err != nil {
 		return err
 	}
-	m := types.NewMessages()
-	m.Data = d
-	m.Group = group
-	m.Type = types.MESSAGETYPE
 	if common.SendMessageFlag {
-		common.SendMessage <- m
+		common.SendMessage <- types.NewMessages(types.MESSAGETYPE,d)
 	}
+	return nil
+}
+
+// todo request/reply
+func (a *AspireMq)RequestPublish(topic,message string)error{
+	return nil
+}
+
+// todo queue publish
+func (a *AspireMq)QueuePublish(topic,message string)error{
+	return nil
+}
+
+// todo timer task publish
+func (a *AspireMq)TimerTaskPublish(topic,message string)error {
+	return nil
+}
+
+//*
+//this is group
+//*/
+
+type GroupAspireMq struct {
+
+}
+
+// group call this
+func GroupAspire()error{
+	return nil
+}
+
+// todo group publish
+func (a *GroupAspireMq)GroupPublish(group,topic,message string)error{
+	return nil
+}
+
+// todo group queue publish
+func (a *GroupAspireMq)GroupQueuePublish(group,message string)error{
+	return nil
+}
+
+// todo group timer task publish
+func (a *GroupAspireMq)GroupTimerTaskPublish(group,topic,message string)error {
+	return nil
+}
+
+// todo group request reply publish
+func (a *GroupAspireMq)GroupRequestPublish(group,topic,message string)error {
 	return nil
 }
