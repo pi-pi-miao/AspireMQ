@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"github.com/pi-pi-miao/AspireMQ/pkg/aspire_mq"
 	"github.com/urfave/cli" // 2.1.1
 )
@@ -33,7 +35,14 @@ var (
 )
 
 func starts(cli *cli.Context)error{
-	aspire_mq.AspireMQServer(cli.String("addr"))
+	addr := cli.String("addr")
+	if addr == "" {
+		return errors.New("please add --addr=ip:port")
+	}
+	if err := aspire_mq.AspireMQServer(addr);err != nil {
+		fmt.Println("run aspire failed ",err)
+		return err
+	}
 	return nil
 }
 

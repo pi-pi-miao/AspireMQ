@@ -11,6 +11,7 @@ var (
 	MessageIdStop   chan bool         // controller id chan
 	SendMessage     chan *types.Messages       // all product send message to this channel
 	SendMessageFlag bool              // sendMessage flag
+	// todo 待把数据删除
 	TemporaryCache  *safe_map.SyncMap // this is temporary map
 )
 
@@ -24,4 +25,10 @@ func SetId() {
 		}
 		MessageId <- id.GetId()
 	}
+}
+
+func Close(){
+	close(MessageIdStop)
+	close(MessageId)
+	close(SendMessage)
 }

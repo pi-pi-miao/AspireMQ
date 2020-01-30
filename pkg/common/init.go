@@ -8,7 +8,7 @@ import (
 
 func InitCommon(){
 	SendMessageFlag = true
-	MessageId = make(chan string,1000)
+	MessageId = make(chan string,1024)
 	MessageIdStop = make(chan bool)
 	SendMessage  = make(chan *types.Messages,2000)
 	TemporaryCache = safe_map.New()

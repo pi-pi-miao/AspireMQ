@@ -17,6 +17,6 @@ func main() {
 		start,
 	}
 	if err := aspired.Run(os.Args);err != nil {
-		fmt.Println("this aspired start err",err)
+		fmt.Println("aspired start failed",err)
 	}
 }

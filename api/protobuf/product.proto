@@ -3,10 +3,10 @@ syntax = "proto3";
 message Message {
    string  Type = 1;
    bytes   Data = 2;
+   string  Topic = 3;
 }
 
 message Product {
-  string    Topic = 1;
-  string   Message = 2;
-  string     Id   = 3;
+  string   Message = 1;
+  string     Id   = 2;
 }

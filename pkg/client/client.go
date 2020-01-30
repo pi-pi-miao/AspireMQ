@@ -1,9 +1,10 @@
 package client
 
 import (
-	"github.com/pi-pi-miao/AspireMQ/api/types"
 	"encoding/binary"
+	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/pi-pi-miao/AspireMQ/api/types"
 	"net"
 	"runtime"
 )
@@ -52,6 +53,7 @@ func (c *Client) ReportOurCpuNum() (*Client, error) {
 	})
 	if err != nil {
 		// todo 打印日志
+		return c,err
 	}
 	ourInfo, err := proto.Marshal(&types.Message{
 		Type: types.MESSAGEOURSELFTYPE,
@@ -60,6 +62,8 @@ func (c *Client) ReportOurCpuNum() (*Client, error) {
 	data := make([]byte, 2)
 	binary.LittleEndian.PutUint16(data, uint16(len(ourInfo)))
 	data = append(data, ourInfo...)
+	// todo 删除掉
+	fmt.Println("data is ",string(data))
 	for k,_ := range c.Conn {
 		if _, err := c.Conn[k].Write(data); err != nil {
 			c.Conn[k].Close()

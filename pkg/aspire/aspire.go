@@ -29,11 +29,8 @@ type aspire struct {
 	aspireMq    *AspireMQ
 	group       string
 	getConn     chan []byte
-	getConnFlag bool
 	stop        chan bool
 	once        *sync.Once
-	lock        *sync.RWMutex
-	gLock       *sync.RWMutex
 }
 
 func NewAspireMQ() {
@@ -49,8 +46,6 @@ func GetConn(conn net.Conn, key string) {
 		stop:     make(chan bool),
 		aspireMq: Mq,
 		once:     &sync.Once{},
-		lock:     &sync.RWMutex{},
-		gLock:    &sync.RWMutex{},
 		conn:conn,
 		key:key,
 	})
@@ -68,13 +63,19 @@ func engine(a *aspire){
 // send message abnormal add this message to cache
 //*/
 func (g *aspire) send() {
+	// todo 删掉
+	fmt.Println("[ aspire send ]")
 	for v := range common.SendMessage {
+		// todo 删掉
+		fmt.Println("[ aspire send ] 2" ,v.Topic)
 		sendData, err := proto.Marshal(&types.Message{
 			Type:  v.Type,
 			Data:  v.Data,
+			Topic:v.Topic,
 		})
 		if err != nil {
 			// todo 打印日志，报警处理
+			return
 		}
 		data := make([]byte, 2)
 		binary.LittleEndian.PutUint16(data, uint16(len(sendData)))
@@ -84,6 +85,9 @@ func (g *aspire) send() {
 			fmt.Println("write err", err)
 			common.TemporaryCache.Set(fmt.Sprintf("%v", time.Now()), v)
 		}
+
+		// todo 删掉
+		fmt.Println("[ aspire send ]this message is sending",string(v.Data))
 	}
 }
 
@@ -95,26 +99,19 @@ func (g *aspire) read() {
 			return
 		default:
 		}
-		g.lock.RLock()
-		if g.getConnFlag {
-			if _, err := io.ReadFull(g.conn, sizeData); err != nil {
-				// todo 待添加日志
-				g.lock.RUnlock()
-				g.close()
-				return
-			}
-			data := make([]byte, binary.LittleEndian.Uint16(sizeData))
-			if _, err := io.ReadFull(g.conn, data); err != nil {
-				// todo 待添加日志
-				g.lock.RUnlock()
-				g.close()
-				return
-			}
-			g.getConn <- data
-			g.lock.RUnlock()
-			continue
+		if _, err := io.ReadFull(g.conn, sizeData); err != nil {
+			// todo 待添加日志
+			g.close()
+			return
 		}
-		g.lock.RUnlock()
+		data := make([]byte, binary.LittleEndian.Uint16(sizeData))
+		if _, err := io.ReadFull(g.conn, data); err != nil {
+			// todo 待添加日志
+			g.close()
+			return
+		}
+		g.getConn <- data
+		return
 	}
 }
 
@@ -141,12 +138,10 @@ func (g *aspire) get() {
 
 func (g *aspire) close() {
 	g.once.Do(func() {
-		g.lock.Lock()
-		g.getConnFlag = false
 		close(g.getConn)
-		g.lock.Unlock()
 		close(g.stop)
 		g.conn.Close()
 		g.aspireMq.Conn.Delete(g.key)
+		Mq.Conn.Delete(g.key)
 	})
 }
