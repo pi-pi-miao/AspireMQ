@@ -19,12 +19,19 @@ type AspireMq struct {
 	Addr   string
 	Err    error
 	SendCh chan string
+	stopServer chan struct{}
 }
 
 // start Call this function
-func Aspire(ip, port, originAddr []string) (*AspireMq, error) {
+func Aspire(ip, port string, originAddr []string) (*AspireMq, error) {
 	a := &AspireMq{
 		Addr: fmt.Sprintf("%v:%v", ip, port),
+		stopServer:make(chan struct{}),
+	}
+	for k,_ := range originAddr {
+		if a.Addr == originAddr[k] {
+			return nil,errors.New("this origin addr is not right")
+		}
 	}
 	aspire.NewAspireMQ()
 	common.InitCommon()
@@ -43,17 +50,24 @@ func (a *AspireMq) Init(addr []string) (*AspireMq, error) {
 				a.Err = err
 				return
 			}
-			conn, err := ln.Accept()
-			if err != nil {
-				//todo add log
-				return
+			for {
+				select {
+				case <- a.stopServer:
+					return
+				default:
+				}
+				conn, err := ln.Accept()
+				if err != nil {
+					//todo add log
+					return
+				}
+				id, ok := <-common.MessageId
+				if !ok {
+					// todo add log about this aspire closed
+					return
+				}
+				aspire.GetConn(conn, id)
 			}
-			id, ok := <-common.MessageId
-			if !ok {
-				// todo add log about this aspire closed
-				return
-			}
-			aspire.GetConn(conn, id)
 		}, "Aspire",
 	)
 	if err := client.ReportOurSelft(a.Addr, addr); err != nil {
@@ -79,7 +93,6 @@ func (a *AspireMq) Publish(topic, message string) error {
 		return errors.New("Unexpected mistakes about get message id")
 	}
 	d, err := proto.Marshal(&types.Product{
-		Topic:   topic,
 		Message: message,
 		Id:      id,
 	})
@@ -87,7 +100,7 @@ func (a *AspireMq) Publish(topic, message string) error {
 		return err
 	}
 	if common.SendMessageFlag {
-		common.SendMessage <- types.NewMessages(types.MESSAGETYPE,d)
+		common.SendMessage <- types.NewMessages(types.MESSAGETYPE,topic,d)
 	}
 	return nil
 }
@@ -105,6 +118,10 @@ func (a *AspireMq)QueuePublish(topic,message string)error{
 // todo timer task publish
 func (a *AspireMq)TimerTaskPublish(topic,message string)error {
 	return nil
+}
+
+func (a *AspireMq)close(){
+	close(a.stopServer)
 }
 
 //*
