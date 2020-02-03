@@ -40,7 +40,7 @@ AspireMQ server
 
 ```go
 go build github.com/pi-pi-miao/AspireMQ/cmd/aspired
-aspired
+aspired start --addr=127.0.0.1:8081
 ```
 
 
