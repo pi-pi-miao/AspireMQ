@@ -3,35 +3,41 @@ package aspire_consumer
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pi-pi-miao/AspireMQ/api/types"
 	"github.com/pi-pi-miao/AspireMQ/staging/src/aspire.mq/wrapper"
 	"io"
 	"net"
+	"sync"
 )
 
 var (
-	ConsumerMessage = make(chan []byte, 10240)
+	once sync.Once
 )
 
 type Consumer struct {
 	ConsumerAddr string
-	AspireAddr   string
+	AspireAddr   []string
 	err          error
 	stopServer   chan struct{}
-	consumer     [1]*consumer
+	consumer     [2]*consumer
+	consumerMessage chan []byte
 }
 
-func NewConsumer() *Consumer {
+func NewConsumer(consumeAddr string,aspireAddr []string) *Consumer {
 	return &Consumer{
 		stopServer: make(chan struct{}),
-		consumer:   [1]*consumer{},
+		consumer:   [2]*consumer{},
+		consumerMessage: make(chan []byte, 10240),
+		ConsumerAddr:consumeAddr,
+		AspireAddr:aspireAddr,
 	}
 }
 
 // consumer start
 func (c *Consumer) AspireConsumer() error {
-	if c.AspireAddr == "" && c.ConsumerAddr == "" {
+	if len(c.AspireAddr) == 0 && c.ConsumerAddr == "" {
 		return errors.New("input aspireAddr or consumerAddr is not input")
 	}
 	c.init()
@@ -43,16 +49,23 @@ func (c *Consumer) AspireConsumer() error {
 
 // register topic
 func (c *Consumer) Register(topic string) (err error) {
-	if err := c.consumer[0].write(topic); err != nil {
+	c.consumer[1] = &consumer{
+		c:             c,
+		getConn:       make(chan []byte,1024),
+		heartbeatConn: make(map[string]conns,10),
+		lock:          &sync.RWMutex{},
+		stopConn:      make(chan struct{}),
+	}
+	if err := c.consumer[1].write(topic); err != nil {
 		return err
 	}
 	return nil
 }
 
 // consume data use need for
-func (c *Consumer) consume() (data string, err error) {
+func (c *Consumer) Consume() (data string, err error) {
 	consumeData := &types.Product{}
-	err = proto.Unmarshal(<-ConsumerMessage, consumeData)
+	err = proto.Unmarshal(<-c.consumerMessage, consumeData)
 	if err != nil {
 		return "", err
 	}
@@ -83,6 +96,8 @@ func (c *Consumer) init() {
 				c:        c,
 				getConn:  make(chan []byte, 10240),
 				conn:     conn,
+				heartbeatConn:make(map[string]conns,1024),
+				lock:&sync.RWMutex{},
 				stopConn: make(chan struct{}),
 			}
 			c.consumer[0] = consumer
@@ -93,15 +108,21 @@ func (c *Consumer) init() {
 }
 
 func (c *Consumer) close() {
+	close(c.consumerMessage)
 	close(c.stopServer)
 }
 
 type consumer struct {
 	c             *Consumer
 	getConn       chan []byte
-	conn          net.Conn
-	heartbeatConn net.Conn
+	conn           net.Conn
+	heartbeatConn  map[string]conns
+	lock          *sync.RWMutex
 	stopConn      chan struct{}
+}
+
+type conns struct {
+	conn          net.Conn
 }
 
 func (c *consumer) dispatcher() {
@@ -125,46 +146,65 @@ func (c *consumer) read() {
 			c.close()
 			return
 		}
-		ConsumerMessage <- data
+		message := &types.Message{}
+		err := proto.Unmarshal(data,message)
+		if err != nil {
+			fmt.Println("[read] recv data err",err)
+			return
+		}
+		c.c.consumerMessage <- message.Data
 	}
 }
 
 func (c *consumer) write(topic string) (err error) {
-	if c.heartbeatConn, err = net.Dial("tcp", c.c.AspireAddr); err != nil {
-		return err
+	for k,_ := range c.c.AspireAddr {
+		conns := conns{}
+		c.lock.RLock()
+		if _,ok := c.heartbeatConn[c.c.AspireAddr[k]];!ok {
+			c.heartbeatConn[c.c.AspireAddr[k]] = conns
+			if conns.conn, err = net.Dial("tcp", c.c.AspireAddr[k]); err != nil {
+				return err
+			}
+			wrapper.Wrapper(c.heartbeat, "consumer.heartbeat")
+			message := &types.Message{
+				Type:  types.MESSAGECONSUMER,
+				Topic: topic,
+				Data:  []byte(c.c.ConsumerAddr),
+			}
+			d, err := proto.Marshal(message)
+			if err != nil {
+				return err
+			}
+			data := make([]byte, 2)
+			binary.LittleEndian.PutUint16(data, uint16(len(d)))
+			data = append(data, d...)
+			if _, err := conns.conn.Write(data); err != nil {
+				// todo add log
+				delete(c.heartbeatConn, c.c.AspireAddr[k])
+				c.close()
+				return err
+			}
+		}
 	}
-	wrapper.Wrapper(c.heartbeat, "consumer.heartbeat")
-	message := &types.Message{
-		Type:  types.MESSAGECONSUMER,
-		Topic: topic,
-		Data:  []byte(c.c.ConsumerAddr),
-	}
-	d, err := proto.Marshal(message)
-	if err != nil {
-		return err
-	}
-	data := make([]byte, 2)
-	binary.LittleEndian.PutUint16(data, uint16(len(d)))
-	data = append(data, d...)
-	if _, err := c.heartbeatConn.Write(data); err != nil {
-		// todo add log
-		c.close()
-		return err
-	}
+
 	return nil
 }
 
+// if heartbeat failed delete c.heartbeat addr map
 func (c *consumer) heartbeat() {
 
 }
 
 func (c *consumer) close() {
-	close(c.stopConn)
-	c.c.consumer[0].close()
+	once.Do(
+		func() {
+			close(c.stopConn)
+			c.c.consumer[0].close()
+			c.c.consumer[1].close()
+		})
 }
 
 // stop consumer
 func (c *Consumer) Stop() {
-	close(ConsumerMessage)
 	c.consumer[0].close()
 }

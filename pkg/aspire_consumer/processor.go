@@ -1,6 +1,10 @@
 package aspire_consumer
 
 import (
+	"encoding/binary"
+	"fmt"
+	"github.com/golang/protobuf/proto"
+	"github.com/pi-pi-miao/AspireMQ/api/types"
 	"github.com/pi-pi-miao/AspireMQ/staging/src/safe_map"
 	"net"
 	"sync"
@@ -15,7 +19,7 @@ var (
 type (
 	topicGroup struct {
 		topic     string
-		processor []processor
+		processor []*processor
 		lock      *sync.RWMutex
 	}
 	processor struct {
@@ -24,14 +28,14 @@ type (
 		heartbeat net.Conn
 	}
 	task struct {
-		f    func(data []byte)
-		data []byte
+		f    func(data *types.Message)
+		data *types.Message
 	}
 )
 
 func NewTopicGroup(topic string) *topicGroup {
 	return &topicGroup{
-		processor: make([]processor, 0, 1024),
+		processor: make([]*processor, 0, 1024),
 		lock:      &sync.RWMutex{},
 		topic:     topic,
 	}
@@ -42,7 +46,11 @@ func (t *topicGroup) Create(addr string, conn net.Conn) {
 		t:         t,
 		heartbeat: conn,
 	}
+	t.lock.Lock()
+	t.processor = append(t.processor,p)
+	t.lock.Unlock()
 	p.conn, _ = net.Dial("tcp", addr)
+	topicProcessor.Set(t.topic,t)
 }
 
 func Init() {
@@ -60,8 +68,18 @@ func Init() {
 	}
 }
 
-func (p *processor) send(data []byte) {
-	if _, err := p.conn.Write(data); err != nil {
+func (p *processor) send(data *types.Message) {
+	fmt.Println("send data is ",data)
+	m ,err := proto.Marshal(data)
+	message := make([]byte,2)
+	if err != nil {
+		fmt.Println("marshal err",err)
+		return
+	}
+	binary.LittleEndian.PutUint16(message,uint16(len(m)))
+	message = append(message, m...)
+	if _, err := p.conn.Write(message); err != nil {
+		fmt.Println("1")
 		// todo get log report and conn again three time
 		return
 	}
@@ -73,16 +91,17 @@ func (p *processor) close() {
 	p.heartbeat.Close()
 }
 
-func Dispatcher(topic string, data []byte) {
+func Dispatcher(topic string, data *types.Message) {
 	processor, ok := topicProcessor.Get(topic)
 	if !ok {
 		// todo 持久化这条数据
+		// 支持外部存储
 		return
 	}
 	t := task{
 		data: data,
 	}
-	group := processor.(topicGroup)
+	group := processor.(*topicGroup)
 	group.lock.RLock()
 	for k, _ := range group.processor {
 		t.f = group.processor[k].send

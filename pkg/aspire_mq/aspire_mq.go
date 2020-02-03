@@ -74,6 +74,8 @@ func (a *AspireMQ)init(){
 			// todo add log about this aspire closed
 			return
 		}
+		// todo 删除
+		fmt.Println("[AspireMQ.init] accept new conn")
 		report := newAspireMQReport()
 		report.conn = conn
 		report.aspireMQ = a
@@ -95,7 +97,6 @@ func newAspireMQReport()*aspireMQReport{
 func (a *aspireMQReport)dispatcher(){
 	wrapper.Wrapper(a.get,"mq.get")
 	wrapper.Wrapper(a.read,"mq.read")
-	wrapper.Wrapper(a.write,"mq.write")
 }
 
 func (a *aspireMQReport)get(){
@@ -123,6 +124,7 @@ func (a *aspireMQReport)get(){
 			*aspire.productMessage = *productMessage
 			// todo report dashboard，if heartbeat err delete
 			mq.Node.Set(productMessage.Addr,aspire)
+			fmt.Println("1")
 			aspire.create()
 		case types.MESSAGECONSUMER:
 			group := aspire_consumer.NewTopicGroup(message.Topic)
@@ -159,9 +161,6 @@ func (a *aspireMQReport)read(){
 	}
 }
 
-func (a *aspireMQReport)write(){
-
-}
 
 func (a *aspireMQReport)close(){
 	close(a.getConn)

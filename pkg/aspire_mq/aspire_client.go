@@ -11,6 +11,7 @@ import (
 	"github.com/pi-pi-miao/AspireMQ/staging/src/safe_map"
 	"io"
 	"net"
+	"sync"
 )
 
 // aspireConn manager
@@ -27,16 +28,19 @@ type aspireConn struct {
 	sendConn chan []byte
 	addr string
 	conn net.Conn
+	once *sync.Once
 }
 
 func (m *aspireMQ)create()(err error){
 	// todo create number conn
 	for i:=0;i<int(m.productMessage.CpuNum);i++ {
 		a := &aspireConn{
+			mq:m,
 			stopConn:make(chan struct{}),
 			getConn:make(chan []byte,10240),
 			sendConn:make(chan []byte,10240),
 			addr:m.productMessage.Addr,
+			once:&sync.Once{},
 		}
 		a.conn,err = net.Dial("tcp",a.addr)
 		if err != nil {
@@ -66,7 +70,8 @@ func (a *aspireConn)get(){
 			return
 		}
 		fmt.Printf("get from aspire product topic is %v m is %v \n",m.Topic,m)
-		aspire_consumer.Dispatcher(m.Topic,m.Data)
+
+		aspire_consumer.Dispatcher(m.Topic,m)
 	}
 }
 
@@ -89,6 +94,7 @@ func (a *aspireConn)read(){
 			a.close()
 			return
 		}
+		fmt.Println("[aspireConn] data is  ",string(data))
 		a.getConn <- data
 	}
 }
@@ -97,9 +103,14 @@ func (a *aspireConn)write(){
 }
 
 func (a *aspireConn)close(){
-	close(a.stopConn)
-	close(a.getConn)
-	close(a.sendConn)
-	a.conn.Close()
-	a.mq.conn.Delete(a.id)
+	a.once.Do(
+		func() {
+			close(a.stopConn)
+			close(a.getConn)
+			close(a.sendConn)
+			if a.conn != nil {
+				a.conn.Close()
+			}
+			a.mq.conn.Delete(a.id)
+		})
 }

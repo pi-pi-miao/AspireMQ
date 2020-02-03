@@ -18,5 +18,5 @@ func main(){
 		return
 	}
 	aspireMQ.Publish("aspire","hello")
-	time.Sleep(10*time.Second)
+	time.Sleep(3*time.Second)
 }
