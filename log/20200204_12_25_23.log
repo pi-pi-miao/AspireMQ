@@ -1,1 +1,8 @@
 [debug  ] [2020-02-04 12:25:23.8074501 +0800 CST m=+0.033908801] AspireMQ is running and addr is 127.0.0.1:8081 
+[error  ] [aspireMQReport.read][2020-02-04 12:26:56.7849008 +0800 CST m=+93.011359501] read conn close err read tcp 127.0.0.1:8081->127.0.0.1:51397: wsarecv: An existing connection was forcibly closed by the remote host.
+[error  ] [aspireMQReport.read][2020-02-04 12:27:28.8073001 +0800 CST m=+125.033758801] read conn close err read tcp 127.0.0.1:8081->127.0.0.1:51459: wsarecv: An existing connection was forcibly closed by the remote host.
+[error  ] [aspireMQReport.read][2020-02-04 12:27:41.1114063 +0800 CST m=+137.337865001] read conn close err read tcp 127.0.0.1:8081->127.0.0.1:51444: wsarecv: An existing connection was forcibly closed by the remote host.
+[error  ] [aspireConn.read][2020-02-04 12:27:44.1123844 +0800 CST m=+140.338843101] read conn close err read tcp 127.0.0.1:51482->127.0.0.1:8080: wsarecv: An existing connection was forcibly closed by the remote host.
+[error  ] [aspireConn.read][2020-02-04 12:27:44.1123844 +0800 CST m=+140.338843101] read conn close err read tcp 127.0.0.1:51481->127.0.0.1:8080: wsarecv: An existing connection was forcibly closed by the remote host.
+[error  ] [aspireConn.read][2020-02-04 12:27:44.1123844 +0800 CST m=+140.338843101] read conn close err read tcp 127.0.0.1:51480->127.0.0.1:8080: wsarecv: An existing connection was forcibly closed by the remote host.
+[error  ] [aspireMQReport.read][2020-02-04 12:27:44.1123844 +0800 CST m=+140.338843101] read conn close err read tcp 127.0.0.1:8081->127.0.0.1:51479: wsarecv: An existing connection was forcibly closed by the remote host.
