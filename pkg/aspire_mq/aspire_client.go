@@ -7,11 +7,13 @@ import (
 	"github.com/pi-pi-miao/AspireMQ/api/types"
 	"github.com/pi-pi-miao/AspireMQ/pkg/aspire_consumer"
 	"github.com/pi-pi-miao/AspireMQ/pkg/common"
+	"github.com/pi-pi-miao/AspireMQ/pkg/logger"
 	"github.com/pi-pi-miao/AspireMQ/staging/src/aspire.mq/wrapper"
 	"github.com/pi-pi-miao/AspireMQ/staging/src/safe_map"
 	"io"
 	"net"
 	"sync"
+	"time"
 )
 
 // aspireConn manager
@@ -56,7 +58,6 @@ func (m *aspireMQ)create()(err error){
 		m.conn.Set(id,a)
 		wrapper.Wrapper(a.get,"a.get")
 		wrapper.Wrapper(a.read,"a.read")
-		wrapper.Wrapper(a.write,"a.write")
 	}
 	return nil
 }
@@ -66,11 +67,9 @@ func (a *aspireConn)get(){
 		m := &types.Message{}
 		err := proto.Unmarshal(data,m)
 		if err != nil {
-			fmt.Printf("unmarshal m err %v",err)
+			logger.Logger.Error("[aspireConn.get][%v] unmarshal data %v err %v",time.Now(),string(data),err)
 			return
 		}
-		fmt.Printf("get from aspire product topic is %v m is %v \n",m.Topic,m)
-
 		aspire_consumer.Dispatcher(m.Topic,m)
 	}
 }
@@ -84,22 +83,19 @@ func (a *aspireConn)read(){
 		default:
 		}
 		if _,err := io.ReadFull(a.conn,sizeData);err != nil {
-			// todo get log
+			logger.Logger.Error("[aspireConn.read][%v] read conn close err %v",time.Now(),err)
 			a.close()
 			return
 		}
 		data := make([]byte,binary.LittleEndian.Uint16(sizeData))
 		if _,err := io.ReadFull(a.conn,data);err != nil {
-			// todo get log
+			logger.Logger.Error("[aspireConn.read][%v] read conn close err %v",time.Now(),err)
 			a.close()
 			return
 		}
 		fmt.Println("[aspireConn] data is  ",string(data))
 		a.getConn <- data
 	}
-}
-
-func (a *aspireConn)write(){
 }
 
 func (a *aspireConn)close(){

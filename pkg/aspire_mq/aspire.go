@@ -5,6 +5,7 @@ import (
 	"github.com/pi-pi-miao/AspireMQ/pkg/aspire"
 	"github.com/pi-pi-miao/AspireMQ/pkg/client"
 	"github.com/pi-pi-miao/AspireMQ/pkg/common"
+	"github.com/pi-pi-miao/AspireMQ/pkg/logger"
 	"github.com/pi-pi-miao/AspireMQ/staging/src/aspire.mq/wrapper"
 	"errors"
 	"fmt"
@@ -20,6 +21,7 @@ type AspireMq struct {
 	Err    error
 	SendCh chan string
 	stopServer chan struct{}
+	Url    string
 }
 
 // start Call this function
@@ -35,18 +37,25 @@ func Aspire(ip, port string, originAddr []string) (*AspireMq, error) {
 	}
 	aspire.NewAspireMQ()
 	common.InitCommon()
+	a.InitLog("")
 	if _, err := a.Init(originAddr); err != nil {
 		return nil, err
 	}
 	return a, nil
 }
 
+// todo 待加工
+func (a *AspireMq)InitLog(url string){
+	logger.New(url,"debug","./src/github.com/pi-pi-miao/AspireMQ/log/",0)
+}
+
 func (a *AspireMq) Init(addr []string) (*AspireMq, error) {
+	logger.Logger.Debug("[AspireMq][%v] start success",time.Now())
 	wrapper.Wrapper(
 		func() {
 			ln, err := net.Listen("tcp", a.Addr)
 			if err != nil {
-				// todo add log
+				logger.Logger.Error("[AspireMq.Init][%v] listen err %v",time.Now(),err)
 				a.Err = err
 				return
 			}
@@ -58,12 +67,13 @@ func (a *AspireMq) Init(addr []string) (*AspireMq, error) {
 				}
 				conn, err := ln.Accept()
 				if err != nil {
-					//todo add log
+					logger.Logger.Error("[AspireMq.Init][%v] Accept err %v",time.Now(),err)
 					return
 				}
 				id, ok := <-common.MessageId
 				if !ok {
 					// todo add log about this aspire closed
+					logger.Logger.Error("[AspireMq.Init][%v] common.MessageId close %v",time.Now(),"aspire product finish")
 					return
 				}
 				aspire.GetConn(conn, id)

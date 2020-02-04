@@ -3,13 +3,14 @@ package aspire_consumer
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pi-pi-miao/AspireMQ/api/types"
+	"github.com/pi-pi-miao/AspireMQ/pkg/logger"
 	"github.com/pi-pi-miao/AspireMQ/staging/src/aspire.mq/wrapper"
 	"io"
 	"net"
 	"sync"
+	"time"
 )
 
 var (
@@ -37,6 +38,7 @@ func NewConsumer(consumeAddr string,aspireAddr []string) *Consumer {
 
 // consumer start
 func (c *Consumer) AspireConsumer() error {
+	c.Initlog("")
 	if len(c.AspireAddr) == 0 && c.ConsumerAddr == "" {
 		return errors.New("input aspireAddr or consumerAddr is not input")
 	}
@@ -45,6 +47,11 @@ func (c *Consumer) AspireConsumer() error {
 		return c.err
 	}
 	return nil
+}
+
+// todo 待加工
+func (c *Consumer)Initlog(url string){
+	logger.New(url,"debug","./src/github.com/pi-pi-miao/AspireMQ/log/",0)
 }
 
 // register topic
@@ -74,6 +81,7 @@ func (c *Consumer) Consume() (data string, err error) {
 }
 
 func (c *Consumer) init() {
+	logger.Logger.Debug("[Consumer][%v] start success",time.Now())
 	wrapper.Wrapper(func() {
 		l, err := net.Listen("tcp", c.ConsumerAddr)
 		if err != nil {
@@ -88,7 +96,7 @@ func (c *Consumer) init() {
 			}
 			conn, err := l.Accept()
 			if err != nil {
-				// todo add log
+				logger.Logger.Error("[Consumer.init][%v] accept err %v",time.Now(),err)
 				c.close()
 				return
 			}
@@ -138,18 +146,20 @@ func (c *consumer) read() {
 		default:
 		}
 		if _, err := io.ReadFull(c.conn, sizeData); err != nil {
+			logger.Logger.Error("[consumer.read][%v] conn close err %v",time.Now(),err)
 			c.close()
 			return
 		}
 		data := make([]byte, binary.LittleEndian.Uint16(sizeData))
 		if _, err := io.ReadFull(c.conn, data); err != nil {
+			logger.Logger.Error("[consumer.read][%v] conn close err %v",time.Now(),err)
 			c.close()
 			return
 		}
 		message := &types.Message{}
 		err := proto.Unmarshal(data,message)
 		if err != nil {
-			fmt.Println("[read] recv data err",err)
+			logger.Logger.Error("[consumer.read][%v] unmarshal data %v err %v",time.Now(),string(data),err)
 			return
 		}
 		c.c.consumerMessage <- message.Data
@@ -179,7 +189,7 @@ func (c *consumer) write(topic string) (err error) {
 			binary.LittleEndian.PutUint16(data, uint16(len(d)))
 			data = append(data, d...)
 			if _, err := conns.conn.Write(data); err != nil {
-				// todo add log
+				logger.Logger.Error("[consumer.write][%v] write data %v err %v",time.Now(),string(data),err)
 				delete(c.heartbeatConn, c.c.AspireAddr[k])
 				c.close()
 				return err

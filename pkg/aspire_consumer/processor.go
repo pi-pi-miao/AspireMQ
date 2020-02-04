@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pi-pi-miao/AspireMQ/api/types"
+	"github.com/pi-pi-miao/AspireMQ/pkg/logger"
 	"github.com/pi-pi-miao/AspireMQ/staging/src/safe_map"
 	"net"
 	"sync"
+	"time"
 )
 
 var (
@@ -58,7 +60,7 @@ func Init() {
 		go func() {
 			defer func() {
 				if err := recover(); err != nil {
-					// todo add log
+					logger.Logger.Error("[consume init][%v] goroutine panic err %v",time.Now(),err)
 				}
 			}()
 			for v := range work {
@@ -69,7 +71,6 @@ func Init() {
 }
 
 func (p *processor) send(data *types.Message) {
-	fmt.Println("send data is ",data)
 	m ,err := proto.Marshal(data)
 	message := make([]byte,2)
 	if err != nil {

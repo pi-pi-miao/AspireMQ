@@ -7,11 +7,13 @@ import (
 	"github.com/pi-pi-miao/AspireMQ/api/types"
 	"github.com/pi-pi-miao/AspireMQ/pkg/aspire_consumer"
 	"github.com/pi-pi-miao/AspireMQ/pkg/common"
+	"github.com/pi-pi-miao/AspireMQ/pkg/logger"
 	"github.com/pi-pi-miao/AspireMQ/staging/src/aspire.mq/wrapper"
 	"github.com/pi-pi-miao/AspireMQ/staging/src/safe_map"
 	"io"
 	"net"
 	"sync"
+	"time"
 )
 
 var (
@@ -43,16 +45,24 @@ func AspireMQServer(addr string)error{
 		stopServer:make(chan struct{}),
 		Node:safe_map.New(),
 		report:safe_map.New()}
+	mq.initLog("")
+
 	mq.init()
-	// todo add log
+	logger.Logger.Error("AspireMq is finish")
 	fmt.Println("AspireMQ is finish ... ")
 	mq.close()
 	return nil
 }
 
+// todo 待加工
+func (a *AspireMQ)initLog(url string){
+	logger.New(url,"debug","./src/github.com/pi-pi-miao/AspireMQ/log/",0)
+}
+
 func (a *AspireMQ)init(){
 	common.InitCommon()
 	aspire_consumer.Init()
+	logger.Logger.Debug("[%v] AspireMQ is running and addr is %v ",time.Now(),a.Addr)
 	fmt.Printf("AspireMQ is running and addr is %v ",a.Addr)
 	l,err := net.Listen("tcp",a.Addr)
 	if err != nil {
@@ -104,16 +114,14 @@ func (a *aspireMQReport)get(){
 		message := &types.Message{}
 		productMessage := &types.OurSelf{}
 		if err := proto.Unmarshal(data,message);err != nil {
-			// todo get log and report
+			logger.Logger.Error("[aspireMQReport.get][%v] unmarshal data %v err %v",time.Now(),string(data),err)
 			a.close()
 			return
 		}
 		switch message.Type {
 		case types.MESSAGEOURSELFTYPE:
-			// todo debug so 删除
-			fmt.Println("[ aspireMQ.get ]",string(message.Data),"type",message.Type)
 			if err := proto.Unmarshal(message.Data,productMessage);err != nil {
-				// todo get log and report Illegal request code
+				logger.Logger.Error("[aspireMQReport.get][%v] unmarshal message.Data %v err %v",time.Now(),string(message.Data),err)
 				a.close()
 				return
 			}
@@ -124,7 +132,6 @@ func (a *aspireMQReport)get(){
 			*aspire.productMessage = *productMessage
 			// todo report dashboard，if heartbeat err delete
 			mq.Node.Set(productMessage.Addr,aspire)
-			fmt.Println("1")
 			aspire.create()
 		case types.MESSAGECONSUMER:
 			group := aspire_consumer.NewTopicGroup(message.Topic)
@@ -148,13 +155,13 @@ func (a *aspireMQReport)read(){
 		}
 		if _, err := io.ReadFull(a.conn, sizeData); err != nil {
 			a.close()
-			// todo 打印日志
+			logger.Logger.Error("[aspireMQReport.read][%v] read conn close err %v",time.Now(),err)
 			return
 		}
 		data := make([]byte, binary.LittleEndian.Uint16(sizeData))
 		if _, err := io.ReadFull(a.conn, data); err != nil {
 			a.close()
-			// todo 打印日志
+			logger.Logger.Error("[aspireMQReport.read][%v] read conn close err %v",time.Now(),err)
 			return
 		}
 		a.getConn <- data

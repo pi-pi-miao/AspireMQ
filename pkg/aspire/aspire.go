@@ -6,6 +6,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pi-pi-miao/AspireMQ/api/types"
 	"github.com/pi-pi-miao/AspireMQ/pkg/common"
+	"github.com/pi-pi-miao/AspireMQ/pkg/logger"
 	"github.com/pi-pi-miao/AspireMQ/staging/src/aspire.mq/wrapper"
 	"github.com/pi-pi-miao/AspireMQ/staging/src/safe_map"
 	"io"
@@ -54,7 +55,6 @@ func GetConn(conn net.Conn, key string) {
 // todo add heartbeat
 func engine(a *aspire){
 	Mq.Conn.Set(a.key, a)
-	wrapper.Wrapper(a.get, "aspire.[get]")
 	wrapper.Wrapper(a.read, "aspire.[read]")
 	wrapper.Wrapper(a.send, "aspire.[send]")
 }
@@ -63,18 +63,14 @@ func engine(a *aspire){
 // send message abnormal add this message to cache
 //*/
 func (g *aspire) send() {
-	// todo 删掉
-	fmt.Println("[ aspire send ]")
 	for v := range common.SendMessage {
-		// todo 删掉
-		fmt.Println("[ aspire send ] 2" ,v.Topic)
 		sendData, err := proto.Marshal(&types.Message{
 			Type:  v.Type,
 			Data:  v.Data,
 			Topic:v.Topic,
 		})
 		if err != nil {
-			// todo 打印日志，报警处理
+			logger.Logger.Error("[aspire.send][%v] marshal data %v err %v",time.Now(),string(sendData),err)
 			return
 		}
 		data := make([]byte, 2)
@@ -85,9 +81,6 @@ func (g *aspire) send() {
 			fmt.Println("write err", err)
 			common.TemporaryCache.Set(fmt.Sprintf("%v", time.Now()), v)
 		}
-
-		// todo 删掉
-		fmt.Println("[ aspire send ]this message is sending",string(v.Data))
 	}
 }
 
@@ -100,13 +93,13 @@ func (g *aspire) read() {
 		default:
 		}
 		if _, err := io.ReadFull(g.conn, sizeData); err != nil {
-			// todo 待添加日志
+			logger.Logger.Error("[aspire.read][%v] read conn close err %v",time.Now(),err)
 			g.close()
 			return
 		}
 		data := make([]byte, binary.LittleEndian.Uint16(sizeData))
 		if _, err := io.ReadFull(g.conn, data); err != nil {
-			// todo 待添加日志
+			logger.Logger.Error("[aspire.read][%v] read conn close err %v",time.Now(),err)
 			g.close()
 			return
 		}
@@ -116,9 +109,6 @@ func (g *aspire) read() {
 }
 
 // todo heartbeat
-func (g *aspire) get() {
-
-}
 
 // todo add this to group
 // aspireMQ has register group api and can edit group
