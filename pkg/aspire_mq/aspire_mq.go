@@ -136,6 +136,8 @@ func (a *aspireMQReport)get(){
 		case types.MESSAGECONSUMER:
 			group := aspire_consumer.NewTopicGroup(message.Topic)
 			group.Create(string(message.Data),a.conn)
+		case types.MESSAGEDASHBOARD:
+
 		default:
 			fmt.Println("[ aspireMQ.get.default ]",string(message.Data),"type",message.Type)
 			// todo get log and report
